@@ -1,8 +1,9 @@
 CHANNEL ?=	stable
-VERSION ?=	899.13.0
+VERSION ?=	1068.8.0
 REPO ?=		moul/coreos-img
 
 PXE_IMG_URL =	http://${CHANNEL}.release.core-os.net/amd64-usr/${VERSION}/coreos_production_pxe_image.cpio.gz
+BIN_IMG_URL =	http://${CHANNEL}.release.core-os.net/amd64-usr/${VERSION}/coreos_production_image.bin.bz2
 NAME =		$(CHANNEL)-$(VERSION)
 BUILD_DATE =	$(shell date "+%Y-%m-%d")
 
@@ -39,20 +40,18 @@ $(NAME)-rootfs.tar: $(NAME)-rootfs
 	cd $(NAME)-rootfs && tar cf ../$@ .
 
 
-$(NAME)-rootfs: $(NAME)-pxe-image
-	rm -rf $@ $@.tmp
-	unsquashfs -f -d $@.tmp $(NAME)-pxe-image/usr.squashfs
-	mv $@.tmp $@
-	touch $@
+$(NAME)-rootfs: $(NAME)-image.bin
+	./rootfs.sh $(NAME)
 
 
-$(NAME)-pxe-image: $(NAME)-pxe-image.cpio
-	rm -rf $@ $@.tmp
-	mkdir -p $@.tmp
-	cd $@.tmp && cpio -idv < ../$(NAME)-pxe-image.cpio
-	mv $@.tmp $@
+$(NAME)-image.bin:
+	wget -O $@.bz2 $(BIN_IMG_URL)
+	bunzip2 $@.bz2
 
-
-$(NAME)-pxe-image.cpio:
-	wget -O $@.gz $(PXE_IMG_URL)
-	gunzip $@.gz
+clean:
+	umount $(NAME)-rootfs/usr || true
+	umount $(NAME)-rootfs || true
+	rm -rf $(NAME)-image.bin
+	rm -rf $(NAME)-rootfs.tar
+	rm -rf $(NAME)-rootfs
+	rm -rf $(NAME).docker-image
